@@ -4,3 +4,10 @@
 .Ruserdata
 
 man/*.Rd
+
+R/RcppExports.R
+
+src/.gitignore
+src/RcppExports.cpp
+
+
