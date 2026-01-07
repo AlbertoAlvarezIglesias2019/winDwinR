@@ -47,7 +47,7 @@ IntegerVector c_order(NumericVector x);
 //'
 //' @export
 // [[Rcpp::export]]
- NumericVector c_ecdf_surv(NumericVector ttt, NumericVector sss) {
+ NumericVector c_ecdf_surv(NumericVector ttt, IntegerVector sss) {
    int n = ttt.size();
    if (n == 0) return NumericVector(0);
 
