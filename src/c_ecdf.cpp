@@ -32,11 +32,24 @@ using namespace Rcpp;
 //'
 // [[Rcpp::export]]
 NumericVector c_ecdf(NumericVector x){
-  int n = x.size();
+
+  // 1. Filter out NAs first
+  // LogicalVector is_na = is_na(x); // Rcpp way
+  // However, for speed, we can do a single pass:
+  std::vector<double> clean_x;
+  clean_x.reserve(x.size());
+
+  for(int i = 0; i < x.size(); ++i) {
+    if (!NumericVector::is_na(x[i])) {
+      clean_x.push_back(x[i]);
+    }
+  }
+
+  int n = clean_x.size();
   if (n == 0) return NumericVector(0);
 
   // 1. Sort the input
-  std::sort(x.begin(),x.end());
+  std::sort(clean_x.begin(),clean_x.end());
 
   // 2. Identify unique values and counts
   // We'll store unique values and the cumulative index
@@ -47,8 +60,8 @@ NumericVector c_ecdf(NumericVector x){
   int j = 0;
   for (int i = 0; i < n; ++i) {
     // If it's the last occurrence of a specific value
-    if (i == n - 1 || x[i] != x[i+1]) {
-      xu[j] = x[i];
+    if (i == n - 1 || clean_x[i] != clean_x[i+1]) {
+      xu[j] = clean_x[i];
       // Cumulative probability is (index + 1) / total N
       wu[j] = static_cast<double>(i + 1) / n;
       j++;
