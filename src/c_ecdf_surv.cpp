@@ -48,14 +48,37 @@ IntegerVector c_order(NumericVector x);
 //' @export
 // [[Rcpp::export]]
  NumericVector c_ecdf_surv(NumericVector ttt, IntegerVector sss) {
-   int n = ttt.size();
+   //int n = ttt.size();
+   //if (n == 0) return NumericVector(0);
+
+   int n_orig = ttt.size();
+   if (n_orig == 0) return NumericVector(0);
+
+   // 1. Filter out observations with NA in time (ttt)
+   // We keep only observations where ttt is not NA.
+   std::vector<double> clean_t;
+   std::vector<int> clean_s;
+   clean_t.reserve(n_orig);
+   clean_s.reserve(n_orig);
+
+   for (int i = 0; i < n_orig; ++i) {
+     if (!NumericVector::is_na(ttt[i]) && !IntegerVector::is_na(sss[i])) {
+       clean_t.push_back(ttt[i]);
+       clean_s.push_back(sss[i]);
+     }
+   }
+
+   int n = clean_t.size();
    if (n == 0) return NumericVector(0);
 
-   // 1. Get ordering indices (Assuming c_order returns 1-based indices)
-   IntegerVector ord = c_order(ttt);
+   // Convert back to Rcpp types for use with your existing c_order function
+   NumericVector t_vec = wrap(clean_t);
+   IntegerVector s_vec = wrap(clean_s);
 
-   // 2. Storage for unique time points and survival values
-   // We use n as max size and shrink it later
+
+   // 2. Get ordering indices (Based on the cleaned data)
+   IntegerVector ord = c_order(t_vec);
+
    std::vector<double> unique_times;
    std::vector<double> survival_probs;
 
@@ -63,23 +86,19 @@ IntegerVector c_order(NumericVector x);
    int i = 0;
 
    while (i < n) {
-     double current_time = ttt[ord[i] - 1]; // Note the -1 for C++ indexing
+     double current_time = t_vec[ord[i] - 1];
      int events = 0;
-     int censored = 0;
      int n_at_risk = n - i;
 
-     // Handle tied time points: count events and censorings at this exact time
-     while (i < n && ttt[ord[i] - 1] == current_time) {
-       if (sss[ord[i] - 1] > 0) {
+     // Handle tied time points
+     while (i < n && t_vec[ord[i] - 1] == current_time) {
+       if (s_vec[ord[i] - 1] > 0) {
          events++;
-       } else {
-         censored++;
        }
        i++;
      }
 
-     // Product-Limit Calculation
-     // Only update survival and record point if there was at least one event
+     // Kaplan-Meier Product-Limit Calculation
      if (events > 0) {
        current_surv *= (1.0 - static_cast<double>(events) / n_at_risk);
        unique_times.push_back(current_time);
@@ -92,7 +111,7 @@ IntegerVector c_order(NumericVector x);
    NumericVector out(2 * k);
    for (int j = 0; j < k; ++j) {
      out[j] = unique_times[j];
-     out[j + k] = 1.0 - survival_probs[j]; // Cumulative Incidence
+     out[j + k] = 1.0 - survival_probs[j];
    }
 
    return out;
